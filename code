@@ -1,0 +1,82 @@
+#Imports Google drive.
+from google.colab import drive
+
+#Mounts content on Google drive.
+drive.mount('/content/drive')
+
+#ds = dataset
+import pandas as pd
+ds = pd.read_csv('/content/drive/MyDrive/Colab Notebooks/Training Dataset.csv')
+
+#Imports for confusion matrix
+import matplotlib.pyplot as plt
+import numpy as np
+
+#Sentiment Analysis - ML - SVM (Support Vector Machine)
+from sklearn import datasets, svm #svm for Confusion Matrix
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.model_selection import train_test_split, GridSearchCV #GridSearchCV for hyperparameters
+from sklearn.metrics import classification_report, accuracy_score, ConfusionMatrixDisplay
+from sklearn.svm import SVC
+
+#dataset labels
+emotion_labels = ["Anger(0)", "Fear(1)", "Joy(2)", "Love(3)", "Sad(4)", "Surprise(5)"]
+
+#Text and label extraction
+texts = ds["text"]
+labels = ds["label"]
+
+#Step 1: Convert text to TF-IDF features
+vectorizer = TfidfVectorizer(stop_words="english")
+X = vectorizer.fit_transform(texts)
+
+#Step 2: Split into train and test sets (70% train, 30% test)
+X_train, X_test, Y_train, Y_test = train_test_split(X, labels, test_size=0.3,)
+
+#Step 3: Train an SVM classifier
+clf = SVC()
+clf.fit(X_train, Y_train)
+
+#Step 4: Make predictions on the test set (before parameters)
+Y_pred = clf.predict(X_test)
+
+print("Accuracy:", accuracy_score(Y_test, Y_pred))
+print(classification_report(Y_test, Y_pred, target_names=emotion_labels))
+
+#Step 5: Hyperparameter Tuning with GridSearchCV
+pt = {'C': [0.1, 1, 10],
+			'gamma': [1, 0.1, 0.01],
+			'kernel': ['linear']}
+grid = GridSearchCV(SVC(), pt, refit = True, verbose = 3)
+
+grid.fit(X_train, Y_train)
+
+#Step 6: Check best hyperparameter and estimator
+print(grid.best_params_)
+print(grid.best_estimator_)
+
+#Step 7: Make predictions on the test set (After hyperparameters)
+pt_pred = grid.predict(X_test)
+
+print("Accuracy:", accuracy_score(Y_test, pt_pred))
+print(classification_report(Y_test, pt_pred, target_names=emotion_labels))
+
+#Step 8: Create a Confusion Matrix (Based on predictions without hyperparameters)
+titles_option = [("Confusion Matrix, Without Normalisation", None),
+                 ("Normalised Confusion Matrix", "true"),
+]
+for title, normalise in titles_option:
+  display = ConfusionMatrixDisplay.from_estimator(
+      clf,
+      X_test,
+      Y_test,
+      display_labels=emotion_labels,
+      cmap=plt.cm.RdPu,
+      normalize=normalise,
+  )
+  display.ax_.set_title(title)
+
+  print(title)
+  print(display.confusion_matrix)
+
+  plt.show()
